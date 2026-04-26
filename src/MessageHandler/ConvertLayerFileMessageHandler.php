@@ -258,6 +258,7 @@ class ConvertLayerFileMessageHandler
         $layer = (new Layer())
             ->setName($name)
             ->setProject($original->getProject())
+            ->setFilePath($original->getFilePath())
             ->setConversionStatus('pending');
         $this->em->persist($layer);
         $this->em->flush(); // flush immediately so UUID is generated

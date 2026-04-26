@@ -70,7 +70,13 @@ export const PageList: NextComponentType<NextPageContext> = () => {
   const { data: { data: layers, hubURL } = { hubURL: null }, isLoading } =
     useQuery<FetchResponse<PagedCollection<Layer>> | undefined>(
       queryKey,
-      getLayers(page, project, group)
+      getLayers(page, project, group),
+      {
+        refetchInterval: (data) =>
+          data?.data?.["member"]?.some((l) => l.conversionStatus === "pending")
+            ? 3000
+            : false,
+      }
     );
   const collection = useMercure(layers, hubURL);
 
