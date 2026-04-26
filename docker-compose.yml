@@ -1,4 +1,28 @@
 services:
+  traefik:
+    image: traefik:v3
+    container_name: app_traefik
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${TRAEFIK_DASHBOARD_PORT:-8080}:8080"
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=app_network"
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./docker/traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro"
+      - "./docker/nginx/certs:/certs:ro"
+    networks:
+      - app_network
+
   php:
     build:
       context: .
@@ -18,13 +42,21 @@ services:
   nginx:
     image: nginx:stable-alpine
     container_name: app_nginx
-    ports:
-      - "${NGINX_PORT:-8080}:80"
     volumes:
       - .:/var/www/html:ro
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
     depends_on:
       - php
+    labels:
+      - "traefik.enable=true"
+      # HTTPS route — backend is nginx:443, skip self-signed cert verification
+      - "traefik.http.routers.api.rule=Host(`api.localhost`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls=true"
+      - "traefik.http.services.api.loadbalancer.server.port=443"
+      - "traefik.http.services.api.loadbalancer.server.scheme=https"
+      - "traefik.http.services.api.loadbalancer.serversTransport=skipVerify@file"
     networks:
       - app_network
 
@@ -51,17 +83,21 @@ services:
     build:
       context: ./docker/client
     container_name: app_client
-    ports:
-      - "${CLIENT_PORT:-3000}:3000"
     volumes:
       - ./client:/app
       - client_node_modules:/app/node_modules
       - client_next:/app/.next
     environment:
-      - NEXT_PUBLIC_ENTRYPOINT=${NEXT_PUBLIC_ENTRYPOINT:-http://localhost:8080}
+      - NEXT_PUBLIC_ENTRYPOINT=${NEXT_PUBLIC_ENTRYPOINT:-https://api.localhost}
       - API_ENTRYPOINT=http://nginx/api
     depends_on:
       - nginx
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.client.rule=Host(`localhost`)"
+      - "traefik.http.routers.client.entrypoints=websecure"
+      - "traefik.http.routers.client.tls=true"
+      - "traefik.http.services.client.loadbalancer.server.port=3000"
     networks:
       - app_network
 

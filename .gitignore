@@ -11,6 +11,7 @@
 
 ###> docker ###
 .env
+/docker/nginx/certs/
 ###< docker ###
 
 ###> lexik/jwt-authentication-bundle ###
