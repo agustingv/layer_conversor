@@ -1,4 +1,5 @@
 ###> docker ###
 .env
 /docker/nginx/certs/
+/config/
 ###< docker ###
