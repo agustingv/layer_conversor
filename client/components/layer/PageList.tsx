@@ -38,6 +38,10 @@ export const PageList: NextComponentType<NextPageContext> = () => {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeName, setMergeName] = useState("");
+  const [merging, setMerging] = useState(false);
+  const [mergeError, setMergeError] = useState<string | null>(null);
 
   const { data: projectsData } = useQuery<FetchResponse<PagedCollection<Project>> | undefined>(
     "/projects?pagination=false",
@@ -112,6 +116,58 @@ export const PageList: NextComponentType<NextPageContext> = () => {
     }
   };
 
+  const selectedLayers = collection?.["member"]?.filter(
+    (l) => l["@id"] && selectedIds.has(l["@id"]!)
+  ) ?? [];
+
+  const getProjectIri = (l: Layer) =>
+    typeof l.project === "string" ? l.project : (l.project as any)?.["@id"] ?? "";
+
+  const canMerge =
+    selectedLayers.length >= 2 &&
+    selectedLayers.every((l) => l.conversionStatus === "done");
+
+  const mergeProjectIri =
+    [...new Set(selectedLayers.map(getProjectIri))].length === 1
+      ? getProjectIri(selectedLayers[0])
+      : null;
+
+  const handleOpenMerge = () => {
+    setMergeName("");
+    setMergeError(null);
+    setMergeOpen(true);
+  };
+
+  const handleMerge = async () => {
+    if (!mergeName.trim()) {
+      setMergeError("Enter a name for the merged layer.");
+      return;
+    }
+    if (!mergeProjectIri) {
+      setMergeError("All selected layers must belong to the same project.");
+      return;
+    }
+    setMerging(true);
+    setMergeError(null);
+    try {
+      await fetch("/layers/merge", {
+        method: "POST",
+        body: JSON.stringify({
+          name: mergeName.trim(),
+          layers: selectedLayers.map((l) => l["@id"]),
+        }),
+      });
+      setMergeOpen(false);
+      setMergeName("");
+      setSelectedIds(new Set());
+      await queryClient.invalidateQueries(queryKey);
+    } catch (err: any) {
+      setMergeError(err?.message ?? "Merge failed.");
+    } finally {
+      setMerging(false);
+    }
+  };
+
   const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     // Reset group when project changes — the old group may not belong to the new project
@@ -163,15 +219,54 @@ export const PageList: NextComponentType<NextPageContext> = () => {
         </select>
 
         {selectedIds.size > 0 && (
-          <button
-            onClick={handleDeleteSelected}
-            disabled={deleting}
-            className="btn-delete-selected"
-          >
-            {deleting ? "Deleting…" : `Delete selected (${selectedIds.size})`}
-          </button>
+          <>
+            <button
+              onClick={handleOpenMerge}
+              disabled={!canMerge || merging}
+              title={!canMerge ? "Select 2+ converted layers to merge" : undefined}
+              className="btn-merge-selected"
+            >
+              Merge selected ({selectedIds.size})
+            </button>
+            <button
+              onClick={handleDeleteSelected}
+              disabled={deleting}
+              className="btn-delete-selected"
+            >
+              {deleting ? "Deleting…" : `Delete selected (${selectedIds.size})`}
+            </button>
+          </>
         )}
       </div>
+
+      {mergeOpen && (
+        <div className="merge-panel">
+          <strong>Merge {selectedLayers.length} layers into a new layer</strong>
+          {!mergeProjectIri && (
+            <p className="merge-panel-error">All selected layers must belong to the same project.</p>
+          )}
+          {mergeProjectIri && (
+            <div className="merge-panel-form">
+              <input
+                type="text"
+                placeholder="Name for merged layer"
+                value={mergeName}
+                onChange={(e) => setMergeName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleMerge()}
+                className="merge-panel-input"
+                autoFocus
+              />
+              <button onClick={handleMerge} disabled={merging} className="btn-submit">
+                {merging ? "Merging…" : "Merge"}
+              </button>
+              <button onClick={() => setMergeOpen(false)} className="btn-danger-outline">
+                Cancel
+              </button>
+            </div>
+          )}
+          {mergeError && <p className="merge-panel-error">{mergeError}</p>}
+        </div>
+      )}
       {isLoading && <p className="text-gray-500">Loading...</p>}
       {collection && collection["member"] && (
         <>

@@ -23,9 +23,10 @@ const groupInfo = (group: Layer["group"]): { iri: string; name: string } | null 
   return { iri: group, name: group.split("/").pop() ?? group };
 };
 
-const StatusBadge = ({ status, hasFile }: { status?: string | null; hasFile?: boolean }) => {
+const StatusBadge = ({ status, hasFile, merged }: { status?: string | null; hasFile?: boolean; merged?: boolean }) => {
+  const mergedTag = merged ? <span className="status-badge status-badge--merged">Merged</span> : null;
   if (!status) {
-    return hasFile ? <span className="status-badge status-badge--idle">Not converted</span> : null;
+    return merged ? mergedTag : (hasFile ? <span className="status-badge status-badge--idle">Not converted</span> : null);
   }
   const map: Record<string, { label: string; cls: string }> = {
     pending: { label: "Converting…", cls: "status-badge status-badge--pending" },
@@ -33,8 +34,8 @@ const StatusBadge = ({ status, hasFile }: { status?: string | null; hasFile?: bo
     error:   { label: "Error",       cls: "status-badge status-badge--error" },
   };
   const entry = map[status];
-  if (!entry) return null;
-  return <span className={entry.cls}>{entry.label}</span>;
+  if (!entry) return mergedTag;
+  return <>{mergedTag}<span className={entry.cls}>{entry.label}</span></>;
 };
 
 const SelectAllCheckbox = ({
@@ -108,7 +109,7 @@ export const List: FunctionComponent<Props> = ({ layers, selectedIds, onToggle, 
                 ) : <span className="text-muted">—</span>;
               })()}
             </td>
-            <td><StatusBadge status={layer.conversionStatus} hasFile={!!layer.filePath} /></td>
+            <td><StatusBadge status={layer.conversionStatus} hasFile={!!layer.filePath} merged={layer.merged} /></td>
             <td>{layer.createdAt ? new Date(layer.createdAt).toLocaleDateString() : "—"}</td>
             <td className="col-action">
               <Link href={getItemPath(layer["@id"], "/layers/[id]")} className="table-link">Show</Link>

@@ -22,6 +22,8 @@ export class Layer implements Item {
     public group?: string | { "@id"?: string; name?: string } | null,
     public conversionStatus?: string | null,
     public conversionError?: string | null,
+    public merged?: boolean,
+    public sourceLayerIris?: string[] | null,
     public metadata?: LayerMetadata | null,
     public updatedAt?: Date,
     public createdAt?: Date

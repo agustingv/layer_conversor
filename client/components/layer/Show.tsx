@@ -83,7 +83,17 @@ const MetadataPanel = ({ meta }: { meta: LayerMetadata }) => (
 export const Show: FunctionComponent<Props> = ({ layer: initialLayer, text }) => {
   const [layer, setLayer] = useState(initialLayer);
   const [error, setError] = useState<string | null>(null);
+  const [sourceLayers, setSourceLayers] = useState<Layer[]>([]);
   const router = useRouter();
+
+  useEffect(() => {
+    if (!layer.merged || !layer.sourceLayerIris?.length) return;
+    Promise.all(
+      layer.sourceLayerIris.map((iri) =>
+        fetch<Layer>(iri).then((res) => res?.data).catch(() => null)
+      )
+    ).then((results) => setSourceLayers(results.filter(Boolean) as Layer[]));
+  }, [layer.merged, layer.sourceLayerIris?.join(",")]);
 
   useEffect(() => {
     if (layer.conversionStatus !== "pending") return;
@@ -126,6 +136,25 @@ export const Show: FunctionComponent<Props> = ({ layer: initialLayer, text }) =>
 
       {layer.metadata && Object.keys(layer.metadata).length > 0 && (
         <MetadataPanel meta={layer.metadata} />
+      )}
+
+      {layer.merged && layer.sourceLayerIris && layer.sourceLayerIris.length > 0 && (
+        <div className="source-layers-panel">
+          <h2 className="source-layers-title">Merged from</h2>
+          <ul className="source-layers-list">
+            {layer.sourceLayerIris.map((iri, i) => {
+              const id = iri.split("/").pop()!;
+              const src = sourceLayers.find((l) => l["@id"] === iri);
+              return (
+                <li key={iri}>
+                  <Link href={`/layers/${id}`} className="ref-link">
+                    {src ? src.name : id}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
 
       <table className="detail-table">

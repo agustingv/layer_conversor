@@ -259,7 +259,7 @@ class GeoConverterService
         }
     }
 
-    private function mergeGeoJsonFiles(array $inputFiles, string $outputPath): void
+    public function mergeGeoJsonFiles(array $inputFiles, string $outputPath): void
     {
         $features = [];
         foreach ($inputFiles as $file) {

@@ -92,6 +92,15 @@ class Layer
     #[Groups(['layer:read'])]
     private ?string $conversionStatus = null;
 
+    #[ORM\Column(options: ['default' => false])]
+    #[Groups(['layer:read'])]
+    private bool $merged = false;
+
+    /** @var string[]|null */
+    #[ORM\Column(type: 'json', nullable: true)]
+    #[Groups(['layer:read'])]
+    private ?array $sourceLayerIris = null;
+
     /** @var array<string, mixed>|null */
     #[ORM\Column(type: 'json', nullable: true)]
     #[Groups(['layer:read'])]
@@ -149,6 +158,14 @@ class Layer
 
     public function getConversionStatus(): ?string { return $this->conversionStatus; }
     public function setConversionStatus(?string $conversionStatus): static { $this->conversionStatus = $conversionStatus; return $this; }
+
+    public function isMerged(): bool { return $this->merged; }
+    public function setMerged(bool $merged): static { $this->merged = $merged; return $this; }
+
+    /** @return string[]|null */
+    public function getSourceLayerIris(): ?array { return $this->sourceLayerIris; }
+    /** @param string[]|null $sourceLayerIris */
+    public function setSourceLayerIris(?array $sourceLayerIris): static { $this->sourceLayerIris = $sourceLayerIris; return $this; }
 
     /** @return array<string, mixed>|null */
     public function getMetadata(): ?array { return $this->metadata; }
