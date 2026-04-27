@@ -53,6 +53,15 @@ class LayerGroup
     #[Groups(['layer_group:read'])]
     private ?Project $project = null;
 
+    #[ORM\Column(length: 20, nullable: true)]
+    #[Groups(['layer_group:read'])]
+    private ?string $splitStatus = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[Groups(['layer_group:read'])]
+    private ?Layer $originLayer = null;
+
     #[ORM\OneToMany(targetEntity: Layer::class, mappedBy: 'group', orphanRemoval: false)]
     #[Groups(['layer_group:read'])]
     private Collection $layers;
@@ -69,6 +78,12 @@ class LayerGroup
 
     public function getProject(): ?Project { return $this->project; }
     public function setProject(?Project $project): static { $this->project = $project; return $this; }
+
+    public function getSplitStatus(): ?string { return $this->splitStatus; }
+    public function setSplitStatus(?string $splitStatus): static { $this->splitStatus = $splitStatus; return $this; }
+
+    public function getOriginLayer(): ?Layer { return $this->originLayer; }
+    public function setOriginLayer(?Layer $originLayer): static { $this->originLayer = $originLayer; return $this; }
 
     public function getLayers(): Collection { return $this->layers; }
 

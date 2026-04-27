@@ -38,6 +38,14 @@ const StatusBadge = ({ status, hasFile, merged }: { status?: string | null; hasF
   return <>{mergedTag}<span className={entry.cls}>{entry.label}</span></>;
 };
 
+const GeoJsonSize = ({ bytes }: { bytes?: number | null }) => {
+  if (bytes == null) return <span className="text-muted">—</span>;
+  const mb = bytes / 1_000_000;
+  const label = mb < 0.1 ? `${(bytes / 1000).toFixed(0)} KB` : `${mb.toFixed(2)} MB`;
+  const color = mb < 1 ? "#22c55e" : mb < 5 ? "#f97316" : "#ef4444";
+  return <span style={{ color, fontWeight: 600 }}>{label}</span>;
+};
+
 const SelectAllCheckbox = ({
   total,
   selected,
@@ -80,6 +88,7 @@ export const List: FunctionComponent<Props> = ({ layers, selectedIds, onToggle, 
         <th>Project</th>
         <th>Group</th>
         <th>Conversion</th>
+        <th>GeoJSON Size</th>
         <th>Created</th>
         <th colSpan={2} />
       </tr>
@@ -110,6 +119,7 @@ export const List: FunctionComponent<Props> = ({ layers, selectedIds, onToggle, 
               })()}
             </td>
             <td><StatusBadge status={layer.conversionStatus} hasFile={!!layer.filePath} merged={layer.merged} /></td>
+            <td><GeoJsonSize bytes={layer.conversionStatus === "done" ? (layer.metadata?.geoJsonSize ?? null) : null} /></td>
             <td>{layer.createdAt ? new Date(layer.createdAt).toLocaleDateString() : "—"}</td>
             <td className="col-action">
               <Link href={getItemPath(layer["@id"], "/layers/[id]")} className="table-link">Show</Link>

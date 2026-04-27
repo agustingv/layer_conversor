@@ -4,7 +4,7 @@ namespace App\GeoConverter;
 
 class GeoConverterService
 {
-    private const SUPPORTED_EXTENSIONS = ['geojson', 'json', 'kml', 'kmz', 'gpx', 'gml', 'zip', 'gpkg'];
+    private const SUPPORTED_EXTENSIONS = ['geojson', 'json', 'kml', 'kmz', 'gpx', 'gml', 'zip', 'gpkg', 'dgn', 'dxf'];
 
     public function convertToFile(string $inputPath, string $outputPath): void
     {

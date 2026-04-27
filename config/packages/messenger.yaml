@@ -13,3 +13,4 @@ framework:
 
         routing:
             'App\Message\ConvertLayerFileMessage': async
+            'App\Message\SplitLayerMessage': async

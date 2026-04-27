@@ -76,7 +76,7 @@ class ConvertLayerFileMessageHandler
                 $this->geoConverter->convertToFile($inputPath, $outputFile);
                 $layer->setGeoJsonPath('/geojson/' . $message->layerId . '.geojson');
                 $layer->setConversionStatus('done');
-                $layer->setMetadata($this->geoConverter->extractMetadata($inputPath));
+                $layer->setMetadata($this->withSize($this->geoConverter->extractMetadata($inputPath), $outputFile));
             }
         } catch (\Throwable $e) {
             $layer->setConversionStatus('error');
@@ -115,7 +115,7 @@ class ConvertLayerFileMessageHandler
                 $this->geoConverter->convertNamedLayerToFile($inputPath, $outputFile, $layerName);
                 $target->setGeoJsonPath('/geojson/' . $targetId . '.geojson');
                 $target->setConversionStatus('done');
-                $target->setMetadata($this->geoConverter->extractNamedLayerMetadata($inputPath, $layerName));
+                $target->setMetadata($this->withSize($this->geoConverter->extractNamedLayerMetadata($inputPath, $layerName), $outputFile));
             } catch (\Throwable $e) {
                 $target->setConversionStatus('error');
                 $target->setConversionError($e->getMessage());
@@ -151,7 +151,7 @@ class ConvertLayerFileMessageHandler
                 }
                 $target->setGeoJsonPath('/geojson/' . $targetId . '.geojson');
                 $target->setConversionStatus('done');
-                $target->setMetadata($this->geoConverter->extractNamedLayerMetadata($inputPath, $names[0]));
+                $target->setMetadata($this->withSize($this->geoConverter->extractNamedLayerMetadata($inputPath, $names[0]), $outputFile));
             } catch (\Throwable $e) {
                 $target->setConversionStatus('error');
                 $target->setConversionError($e->getMessage());
@@ -199,7 +199,7 @@ class ConvertLayerFileMessageHandler
                     }
                     $target->setGeoJsonPath('/geojson/' . $targetId . '.geojson');
                     $target->setConversionStatus('done');
-                    $target->setMetadata($this->geoConverter->extractShpMetadata($paths[0]));
+                    $target->setMetadata($this->withSize($this->geoConverter->extractShpMetadata($paths[0]), $outputFile));
                 } catch (\Throwable $e) {
                     $target->setConversionStatus('error');
                     $target->setConversionError($e->getMessage());
@@ -236,7 +236,7 @@ class ConvertLayerFileMessageHandler
                     $this->geoConverter->convertShpToFile($shpPath, $outputFile);
                     $target->setGeoJsonPath('/geojson/' . $targetId . '.geojson');
                     $target->setConversionStatus('done');
-                    $target->setMetadata($this->geoConverter->extractShpMetadata($shpPath));
+                    $target->setMetadata($this->withSize($this->geoConverter->extractShpMetadata($shpPath), $outputFile));
                 } catch (\Throwable $e) {
                     $target->setConversionStatus('error');
                     $target->setConversionError($e->getMessage());
@@ -250,6 +250,16 @@ class ConvertLayerFileMessageHandler
         } finally {
             $this->geoConverter->cleanupDir($tempDir);
         }
+    }
+
+    /** @param array<string, mixed> $meta @return array<string, mixed> */
+    private function withSize(array $meta, string $outputFile): array
+    {
+        $size = file_exists($outputFile) ? filesize($outputFile) : false;
+        if ($size !== false) {
+            $meta['geoJsonSize'] = $size;
+        }
+        return $meta;
     }
 
     /** Persists and flushes a new child Layer, returning it with a UUID assigned. */

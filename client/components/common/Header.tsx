@@ -28,6 +28,7 @@ const Header = () => {
             <Link href="/layer-groups" className="header-nav-link">Layer Groups</Link>
             <Link href="/layer-groups/create" className="header-nav-new">+ New</Link>
           </div>
+          <Link href="/map" className="header-nav-link header-nav-map">Map</Link>
         </nav>
         <div className="header-auth">
           {isAuthenticated ? (

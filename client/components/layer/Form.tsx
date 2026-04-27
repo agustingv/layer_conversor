@@ -11,7 +11,7 @@ import { LayerGroup } from "../../types/LayerGroup";
 interface Props { layer?: Layer; }
 interface SaveParams { values: { name: string; description: string; project: string; group: string }; file: File | null; id?: string; }
 
-const ACCEPTED_EXTENSIONS = ".geojson,.json,.kml,.kmz,.gpx,.gml,.zip,.gpkg";
+const ACCEPTED_EXTENSIONS = ".geojson,.json,.kml,.kmz,.gpx,.gml,.zip,.gpkg,.dgn,.dxf";
 
 const SUPPORTED_FORMATS = [
   { label: "GeoJSON", exts: [".geojson", ".json"] },
@@ -20,6 +20,8 @@ const SUPPORTED_FORMATS = [
   { label: "GML", exts: [".gml"] },
   { label: "Shapefile", exts: [".zip"] },
   { label: "GeoPackage", exts: [".gpkg"] },
+  { label: "DGN (Microstation)", exts: [".dgn"] },
+  { label: "DXF (AutoCAD)", exts: [".dxf"] },
 ];
 
 const saveLayer = async ({ values, file, id }: SaveParams) => {

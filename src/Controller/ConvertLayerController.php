@@ -49,7 +49,7 @@ class ConvertLayerController extends AbstractController
 
         if (!$confirmed) {
             $detectedLayers = $this->geoConverter->detectLayers($filePath);
-            if (count($detectedLayers) > 1) {
+            if (count($detectedLayers) >= 1) {
                 $groups = $this->geoConverter->detectLayerGroups($filePath);
                 return $this->json([
                     'confirmation_needed' => true,

@@ -6,6 +6,7 @@ export interface LayerMetadata {
   extent?: { xmin: number; ymin: number; xmax: number; ymax: number };
   crs?: string;
   fields?: { name: string; type: string }[];
+  geoJsonSize?: number;
 }
 
 export class Layer implements Item {

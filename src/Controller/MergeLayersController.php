@@ -107,9 +107,11 @@ class MergeLayersController extends AbstractController
             }
         }
 
+        $size = filesize($geojsonPath);
         return [
             'featureCount' => count($features),
             'geometryType' => count($types) === 1 ? array_key_first($types) : implode(', ', array_keys($types)),
+            'geoJsonSize'  => $size !== false ? $size : 0,
         ];
     }
 }

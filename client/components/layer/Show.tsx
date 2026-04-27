@@ -80,10 +80,13 @@ const MetadataPanel = ({ meta }: { meta: LayerMetadata }) => (
   </div>
 );
 
+type SplitState = null | "loading" | { groupId: string; cellCount: number } | { error: string };
+
 export const Show: FunctionComponent<Props> = ({ layer: initialLayer, text }) => {
   const [layer, setLayer] = useState(initialLayer);
   const [error, setError] = useState<string | null>(null);
   const [sourceLayers, setSourceLayers] = useState<Layer[]>([]);
+  const [splitState, setSplitState] = useState<SplitState>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -109,6 +112,22 @@ export const Show: FunctionComponent<Props> = ({ layer: initialLayer, text }) =>
     return () => clearInterval(id);
   }, [layer["@id"], layer.conversionStatus]);
 
+  const handleSplit = async () => {
+    if (!layer["@id"]) return;
+    setSplitState("loading");
+    try {
+      const res = await fetch<{ groupId: string; status: string }>(
+        layer["@id"] + "/split",
+        { method: "POST" }
+      );
+      if (res?.data) {
+        setSplitState({ groupId: res.data.groupId, cellCount: 0 });
+      }
+    } catch (err: any) {
+      setSplitState({ error: err?.message ?? "Split failed." });
+    }
+  };
+
   const handleDelete = async () => {
     if (!layer["@id"]) return;
     if (!window.confirm("Are you sure you want to delete this item?")) return;
@@ -131,7 +150,33 @@ export const Show: FunctionComponent<Props> = ({ layer: initialLayer, text }) =>
       <h1 className="detail-title">{layer.name}</h1>
 
       {layer.geoJsonPath && (
-        <GeoJsonMap content={layer.geoJsonPath} />
+        (layer.metadata?.geoJsonSize ?? 0) > 5_000_000
+          ? (
+            <div className="map-too-large">
+              <div>
+                <p>
+                  File too large to display on the map ({((layer.metadata!.geoJsonSize!) / 1_000_000).toFixed(2)} MB).
+                  Split it into smaller grid cells to view each one on the map.
+                </p>
+                {splitState === null && (
+                  <button className="btn-split" onClick={handleSplit}>Split into grid</button>
+                )}
+                {splitState === "loading" && (
+                  <span className="split-status">Splitting…</span>
+                )}
+                {splitState !== null && typeof splitState === "object" && "groupId" in splitState && (
+                  <span className="split-status">
+                    Queued — splitting in the background.{" "}
+                    <Link href={`/layer-groups/${splitState.groupId}`} className="ref-link">View group</Link>
+                  </span>
+                )}
+                {splitState !== null && typeof splitState === "object" && "error" in splitState && (
+                  <span className="split-status split-status--error">{splitState.error}</span>
+                )}
+              </div>
+            </div>
+          )
+          : <GeoJsonMap content={layer.geoJsonPath} />
       )}
 
       {layer.metadata && Object.keys(layer.metadata).length > 0 && (
