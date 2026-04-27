@@ -126,9 +126,12 @@ HTTPS_PORT=443
 TRAEFIK_DASHBOARD_PORT=8080
 POSTGRES_PASSWORD=secret
 APP_SECRET=change_me_in_production
-JWT_PASSPHRASE=your_passphrase
+DEFAULT_URI=https://api.localhost
 NEXT_PUBLIC_ENTRYPOINT=https://api.localhost
+JWT_PASSPHRASE=your_passphrase
 ```
+
+Both `DEFAULT_URI` and `NEXT_PUBLIC_ENTRYPOINT` must use `https://`. Using `http://` causes Traefik to issue a 308 redirect that the browser blocks due to missing CORS headers on the redirect response.
 
 ### 2. Add api.localhost to /etc/hosts
 
@@ -144,15 +147,23 @@ On Windows, add `127.0.0.1  api.localhost` to `C:\Windows\System32\drivers\etc\h
 ./generate-certs.sh
 ```
 
-This creates a self-signed certificate in `docker/nginx/certs/` covering `localhost` and `api.localhost`. To avoid browser warnings, follow the trust instructions printed by the script.
+This creates a self-signed certificate in `docker/nginx/certs/` covering `localhost` and `api.localhost`.
+
+**Trusting the certificate is required, not optional.** The frontend makes API calls via JavaScript `fetch()`. Browsers reject `fetch()` requests to HTTPS endpoints with untrusted certificates with a silent `NetworkError` — there is no click-through warning for programmatic requests. Follow the trust instructions printed by the script for your platform.
+
+The easiest path is to install [`mkcert`](https://github.com/FiloSottile/mkcert#installation) before running the script — it handles trust automatically. If you used the OpenSSL fallback, you can also accept the cert by visiting `https://api.localhost` directly in the browser and proceeding past the warning, which adds a one-time browser exception.
 
 ### 4. Generate JWT keys
 
+The keys must live inside `app/api/config/jwt/` — that directory is the Symfony project root inside the PHP container.
+
 ```bash
-mkdir -p config/jwt
-openssl genrsa -out config/jwt/private.pem -aes256 4096   # use JWT_PASSPHRASE when prompted
-openssl rsa -pubout -in config/jwt/private.pem -out config/jwt/public.pem
+mkdir -p app/api/config/jwt
+openssl genrsa -out app/api/config/jwt/private.pem -aes256 4096   # use JWT_PASSPHRASE when prompted
+openssl rsa -pubout -in app/api/config/jwt/private.pem -out app/api/config/jwt/public.pem
 ```
+
+Set `JWT_PASSPHRASE` in `.env` to the passphrase you chose above.
 
 ### 5. Build and start
 
