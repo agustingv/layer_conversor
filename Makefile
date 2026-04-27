@@ -18,9 +18,10 @@ shell: ## Open shell in PHP container
 composer: ## Run composer command — usage: make composer cmd="require vendor/package"
 	docker compose exec php composer $(cmd)
 
-clean: ## Remove Symfony app files (keeps docker/, Makefile, .env, .gitignore)
-	rm -rf bin composer.json composer.lock config public src var vendor migrations \
-	       symfony.lock phpunit.xml.dist README.md
+clean: ## Remove Symfony API files inside app/api/
+	rm -rf app/api/bin app/api/composer.json app/api/composer.lock app/api/config \
+	       app/api/public app/api/src app/api/var app/api/vendor app/api/migrations \
+	       app/api/symfony.lock
 
 install: ## Create Symfony API Platform project (Symfony 7 + API Platform 4)
 	docker compose exec php sh -c " \
@@ -76,7 +77,7 @@ install-client: ## Bootstrap Next.js API Platform PWA client
 generate-client: ## Generate CRUD components from API (run after install-client)
 	docker run --rm \
 		--network host \
-		-v $(PWD)/client:/app \
+		-v $(PWD)/app/client:/app \
 		-w /app \
 		node:22-alpine \
 		sh -c "./node_modules/.bin/create-client http://localhost:$(NGINX_PORT:-8080)/api . --generator next"
