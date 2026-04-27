@@ -11,6 +11,8 @@ A geospatial file management platform. Upload geo files in any common format, co
 - Layer metadata extraction (feature count, geometry type, CRS, extent, field schema)
 - Interactive map preview with progressive rendering for large datasets
 - Organise layers into **Projects** and **Layer Groups**
+- **Merge** multiple converted layers into a single GeoJSON
+- **Grid split** large GeoJSON files into spatial tiles via quadtree subdivision (≤ 5 MB per cell)
 - JWT authentication (stateless, Bearer token)
 - REST API with OpenAPI docs (API Platform)
 - HTTPS via Traefik reverse proxy with self-signed certificates
@@ -45,7 +47,12 @@ PHP container
   ├── REST API (API Platform)
   ├── State processors (multipart uploads, nested relations)
   ├── ConvertLayerController (POST /api/layers/{id}/convert)
-  └── Messenger worker (background, same container)
+  ├── DetectLayersController (POST /api/layers/detect)
+  ├── MergeLayersController  (POST /api/layers/merge)
+  └── SplitLayerController   (POST /api/layers/{id}/split)
+
+Worker container (app_worker)
+  └── Messenger worker (async queue, restarts automatically)
         │  shell
         ▼
 GDAL tools (ogr2ogr · ogrinfo)
@@ -56,7 +63,7 @@ Storage
   └── public/geojson/       — converted outputs (public)
 ```
 
-The Messenger worker starts automatically inside the PHP container via `entrypoint.sh`. It runs with `--time-limit=3600` and is restarted by a shell loop, so no separate worker container or process manager is needed.
+The Messenger worker runs in a dedicated `app_worker` container. It loops with `--time-limit=3600` and a 3-second sleep between restarts, so no separate process manager is needed.
 
 ## Entities
 
@@ -66,8 +73,8 @@ Project ──< Layer
 ```
 
 - **Project** — top-level container; holds layers and groups.
-- **Layer** — a geo dataset with an optional uploaded file, conversion status, GeoJSON output path, and extracted metadata.
-- **LayerGroup** — organises related layers within a project (created automatically when a multi-layer conversion is confirmed).
+- **Layer** — a geo dataset with an optional uploaded file, conversion status, GeoJSON output path, and extracted metadata. The `merged` flag marks layers created by the merge operation; `sourceLayerIris` lists the origin layers.
+- **LayerGroup** — organises related layers within a project (created automatically on multi-layer conversion or grid split). Tracks `splitStatus` and optionally references the `originLayer` that was split.
 - **User** — email + password; roles `ROLE_USER` / `ROLE_ADMIN`.
 
 ## Conversion pipeline
@@ -80,6 +87,23 @@ Project ──< Layer
 4. **Queue** — a `ConvertLayerFileMessage` is dispatched; the layer status becomes `pending`.
 5. **Process** — the background worker runs `ogr2ogr`, writes output to `public/geojson/{id}.geojson`, extracts metadata, and sets status to `done` (or `error`).
 6. If multiple layers were produced, a **LayerGroup** is automatically created and all produced layers are assigned to it.
+
+## Merge pipeline
+
+Any set of two or more converted layers can be combined into a new layer:
+
+1. `POST /api/layers/merge` with `{ "name": "…", "layers": ["/api/layers/id1", …] }`
+2. All source GeoJSON files are merged in-process (no queue) via `GeoConverterService::mergeGeoJsonFiles`.
+3. A new Layer entity is created with `merged: true`, `sourceLayerIris` set, and status `done`.
+
+## Grid split pipeline
+
+Large layers can be split into spatial tiles for more efficient map rendering:
+
+1. `POST /api/layers/{id}/split`
+2. A `SplitLayerMessage` is dispatched; a new LayerGroup with `splitStatus: pending` is created immediately and its IRI is returned (`202`).
+3. The worker runs `GeoJsonSplitterService::split`, which uses quadtree subdivision to partition features into cells ≤ 5 MB each (by centroid, no clipping or duplication).
+4. One child Layer per cell is created and added to the group; `splitStatus` becomes `done`.
 
 ## Getting started
 
@@ -176,7 +200,7 @@ make composer cmd="require vendor/pkg"  # Run composer
 
 ```bash
 # Watch the worker log in real time
-docker logs app_php -f
+docker logs app_worker -f
 
 # Inspect queued / in-flight messages
 docker compose exec postgres psql -U app -d app \
@@ -201,6 +225,9 @@ GET    /api/layers                   List layers (filter: ?project=IRI&group=IRI
 POST   /api/layers                   Upload layer (multipart/form-data)
 PATCH  /api/layers/{id}              Update layer
 POST   /api/layers/{id}/convert      Trigger / confirm conversion
+POST   /api/layers/detect            Detect sub-layers in a file (no upload stored)
+POST   /api/layers/merge             Merge converted layers into one
+POST   /api/layers/{id}/split        Split a large GeoJSON into a spatial grid (async)
 GET    /api/layer_groups             List groups (filter: ?project=IRI)
 POST   /api/layer_groups             Create group
 ```
@@ -218,22 +245,25 @@ POST   /api/layer_groups             Create group
 │   │   └── dynamic.yml        Traefik TLS cert config + backend transport
 │   └── php/
 │       ├── Dockerfile         PHP 8.4-FPM + GDAL tools
-│       └── entrypoint.sh      Starts Messenger worker + PHP-FPM
+│       └── entrypoint.sh      Starts PHP-FPM
 ├── migrations/                Doctrine database migrations
 ├── src/
-│   ├── Controller/            Custom API endpoints (convert, detect, file serve)
+│   ├── Controller/            Custom API endpoints (convert, detect, merge, split, file serve)
 │   ├── Entity/                Project · Layer · LayerGroup · User
+│   ├── EventListener/         LayerGeoJsonCleanupListener (deletes GeoJSON on layer delete)
 │   ├── GeoConverter/          GeoConverterService (ogr2ogr / ogrinfo wrapper)
-│   ├── Message/               ConvertLayerFileMessage
-│   ├── MessageHandler/        ConvertLayerFileMessageHandler
+│   │                          GeoJsonSplitterService (quadtree tile splitter)
+│   ├── Message/               ConvertLayerFileMessage · SplitLayerMessage
+│   ├── MessageHandler/        ConvertLayerFileMessageHandler · SplitLayerMessageHandler
 │   ├── Repository/            Doctrine repositories
 │   └── State/                 API Platform state processors
 ├── client/
-│   ├── components/            React components (forms, lists, map)
-│   ├── pages/                 Next.js pages
+│   ├── components/            React components (forms, lists, map, auth)
+│   ├── context/               AuthContext (JWT state)
+│   ├── pages/                 Next.js pages (projects, layers, layer-groups, map, login)
 │   ├── styles/                Global CSS
 │   ├── types/                 TypeScript types
-│   └── utils/                 API fetch helper, Mercure, data access
+│   └── utils/                 API fetch helper, Mercure, data access, auth
 ├── public/geojson/            Converted GeoJSON output (git-ignored)
 ├── var/private/layers/        Raw uploaded files (git-ignored)
 ├── generate-certs.sh          Self-signed TLS certificate generator
