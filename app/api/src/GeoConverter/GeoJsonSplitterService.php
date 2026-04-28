@@ -20,6 +20,9 @@ class GeoJsonSplitterService
         }
 
         $geojson = json_decode($content, true);
+        if ($geojson === null) {
+            throw new \RuntimeException('Cannot decode GeoJSON: ' . json_last_error_msg());
+        }
         $features = $geojson['features'] ?? [];
 
         if (empty($features)) {

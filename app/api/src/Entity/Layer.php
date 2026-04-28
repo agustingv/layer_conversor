@@ -27,6 +27,7 @@ use Vich\UploaderBundle\Mapping\Annotation as Vich;
 #[ApiFilter(SearchFilter::class, properties: ['project' => 'exact', 'group' => 'exact'])]
 #[ApiResource(
     normalizationContext: ['groups' => ['layer:read']],
+    order: ['createdAt' => 'DESC'],
     operations: [
         new GetCollection(),
         new Get(),

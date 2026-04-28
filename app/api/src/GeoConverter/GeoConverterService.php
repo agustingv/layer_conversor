@@ -87,6 +87,13 @@ class GeoConverterService
         if ($exitCode !== 0 || !file_exists($outputPath)) {
             throw new \RuntimeException('GeoJSON conversion failed: ' . implode("\n", $output));
         }
+
+        // Some formats (DGN, DXF, ...) produce non-UTF-8 property values that break
+        // json_decode downstream. Strip invalid byte sequences so the file stays valid JSON.
+        $content = file_get_contents($outputPath);
+        if ($content !== false && !mb_check_encoding($content, 'UTF-8')) {
+            file_put_contents($outputPath, mb_scrub($content, 'UTF-8'));
+        }
     }
 
     private function findByExtension(string $dir, string $ext): array
